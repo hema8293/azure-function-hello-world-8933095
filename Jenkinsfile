@@ -2,43 +2,38 @@ pipeline {
     agent any
 
     environment {
-        AZURE_FUNCTIONAPP_NAME = 'jenkins-func-demo01'
-        AZURE_RESOURCE_GROUP = 'jenkins-func-demo01_group'
+        AZURE_CREDENTIALS = credentials('azure-sp') // Jenkins credential ID
+        AZURE_FUNCTIONAPP_NAME = 'azure-function-hello-world-8933095'
+        AZURE_SUBSCRIPTION_ID = '919dde06-713d-458a-a28f-5e2d36f69dbb'
     }
 
     stages {
         stage('Build') {
             steps {
                 echo 'Installing dependencies...'
-                sh 'npm install'
+                bat 'npm install'
             }
         }
 
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'npm test'
+                bat 'npm test'
             }
         }
 
         stage('Deploy') {
             steps {
                 echo 'Deploying to Azure...'
-                withCredentials([azureServicePrincipal(
-                    credentialsId: 'azure-sp-credentials',  // Set this in Jenkins → Credentials
-                    subscriptionIdVariable: 'AZURE_SUBSCRIPTION_ID',
-                    clientIdVariable: 'AZURE_CLIENT_ID',
-                    clientSecretVariable: 'AZURE_CLIENT_SECRET',
-                    tenantIdVariable: 'AZURE_TENANT_ID'
-                )]) {
-                    sh '''
-                        az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                        zip -r function.zip .
-                        az functionapp deployment source config-zip \
-                            --resource-group $AZURE_RESOURCE_GROUP \
-                            --name $AZURE_FUNCTIONAPP_NAME \
-                            --src function.zip
-                    '''
+                withCredentials([
+                    string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
+                    string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
+                    string(credentialsId: 'azure-tenant-id', variable: 'AZURE_TENANT_ID')
+                ]) {
+                    bat """
+                    az login --service-principal -u %AZURE_CLIENT_ID% -p %AZURE_CLIENT_SECRET% --tenant %AZURE_TENANT_ID%
+                    az functionapp deployment source config-zip --resource-group myResourceGroup --name %AZURE_FUNCTIONAPP_NAME% --src function.zip
+                    """
                 }
             }
         }
